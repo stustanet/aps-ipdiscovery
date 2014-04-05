@@ -1,2 +1,4 @@
 *~
 *.swp
+ip_discovery
+ip_discovery.o
