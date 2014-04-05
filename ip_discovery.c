@@ -47,6 +47,7 @@ int main(int argc, char* argv[]) {
 	struct sockaddr_ll socket_address;
 	uint8_t src_mac[ETH_ALEN];
 	uint8_t dst_mac[ETH_ALEN];
+	uint8_t sw_mac[ETH_ALEN];
 	uint8_t src_ip[4] = {10, 150, 0, 240};
 	uint8_t dst_ip[4] = {10, 150, 0, 254};
 
@@ -137,6 +138,29 @@ int main(int argc, char* argv[]) {
 		perror("sendto() failed");
 		goto fail;
 	}
+
+	printf("Sent ARP request to switch, waiting for reply...\n");
+
+	// Get the subnet id from the first received arp packet
+	do {
+		memset(ether_frame, 0, ETH_FRAME_LEN);
+
+		if(recv(sock, ether_frame, ETH_FRAME_LEN, 0) == -1) {
+			if(errno == EINTR) {
+				continue;
+			} else {
+				perror("recv() failed");
+				goto fail;
+			}
+		}
+	} while(ntohs(ethhdr->packet_type) != ETH_P_ARP
+	     || ntohs(arphdr->opcode) != ARPOP_REPLY
+	     || memcmp(arphdr->sender_ip, dst_ip, 4) != 0);
+	for(i=0; i<ETH_ALEN; i++) {
+		sw_mac[i] = arphdr->sender_mac[i];
+	}
+	printf("Got ARP reply from switch at %02x:%02x:%02x:%02x:%02x:%02x\n",
+	       sw_mac[0], sw_mac[1], sw_mac[2], sw_mac[3], sw_mac[4], sw_mac[5]);
 
 	close(sock);
 	return EXIT_SUCCESS;
