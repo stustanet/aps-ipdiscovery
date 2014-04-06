@@ -1,46 +1,30 @@
+#define __USE_BSD
+
 #include <arpa/inet.h>
-#include <string.h>
 #include <errno.h>
-#include <linux/if_arp.h>
-#include <linux/if_ether.h>
+#include <linux/if.h>
 #include <linux/if_packet.h>
+#include <net/ethernet.h>
+#include <net/if_arp.h>
+#include <netinet/if_ether.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-// BEWARE: The interface has to be up for this to work
-
-// Define an struct for ARP header
-typedef struct _arp_hdr arp_hdr;
-struct _arp_hdr {
-	uint16_t htype;
-	uint16_t ptype;
-	uint8_t hlen;
-	uint8_t plen;
-	uint16_t opcode;
-	uint8_t sender_mac[ETH_ALEN];
-	uint8_t sender_ip[4];
-	uint8_t target_mac[ETH_ALEN];
-	uint8_t target_ip[4];
-	uint8_t fill[18];
-};
-
-typedef struct _eth_hdr eth_hdr;
-struct _eth_hdr {
-	uint8_t target_mac[ETH_ALEN];
-	uint8_t sender_mac[ETH_ALEN];
-	uint16_t packet_type;
-};
+typedef struct ether_header ether_header;
+typedef struct ether_arp ether_arp;
+/* BEWARE: The interface has to be up for this to work */
 
 int main(int argc, char* argv[]) {
 	int sock;
 	int i;
 	uint8_t subnet_id = 0;
-	eth_hdr* ethhdr;
-	arp_hdr* arphdr;
+	ether_header* eth_header;
+	ether_arp* arp_header;
 	int ifindex = 0;
 	uint8_t ether_frame[ETH_FRAME_LEN];
 	struct ifreq ifr;
@@ -51,16 +35,16 @@ int main(int argc, char* argv[]) {
 	uint8_t src_ip[4] = {10, 150, 0, 240};
 	uint8_t dst_ip[4] = {10, 150, 0, 254};
 
-	ethhdr = (eth_hdr*)ether_frame;
-	arphdr = (arp_hdr*)(ether_frame + ETH_HLEN);
+	eth_header = (ether_header*)ether_frame;
+	arp_header = (ether_arp*)(ether_frame + ETH_HLEN);
 
-	// Open raw socket (needs root) to listen for arp
+	/* Open raw socket (needs root) to listen for arp */
 	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
 		perror("socket() failed");
 		return EXIT_FAILURE;
 	}
 
-	// Get the subnet id from the first received arp packet
+	/* Get the subnet id from the first received arp packet */
 	do {
 		memset(ether_frame, 0, ETH_FRAME_LEN);
 
@@ -72,15 +56,15 @@ int main(int argc, char* argv[]) {
 				goto fail;
 			}
 		}
-	} while(ntohs(ethhdr->packet_type) != ETH_P_ARP);
-	subnet_id = arphdr->sender_ip[2];
+	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP);
+	subnet_id = arp_header->arp_spa[2];
 	printf("Got ARP packet, assuming 10.150.%u.0 subnet.\n", subnet_id);
 
-	// send arp from 10.150.x.240 to the switch at 10.150.x.254 to get it's mac.
+	/* send arp from 10.150.x.240 to the switch at 10.150.x.254 to get it's mac. */
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 	src_ip[2] = dst_ip[2] = subnet_id;
 
-	/*retrieve ethernet interface index*/
+	/*retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
 	if(ioctl(sock, SIOCGIFINDEX, &ifr) == -1) {
 		perror("SIOCGIFINDEX");
@@ -89,7 +73,7 @@ int main(int argc, char* argv[]) {
 	ifindex = ifr.ifr_ifindex;
 	printf("Successfully got interface index: %i\n", ifindex);
 
-	/*retrieve corresponding MAC*/
+	/*retrieve corresponding MAC */
 	if(ioctl(sock, SIOCGIFHWADDR, &ifr) == -1) {
 		perror("SIOCGIFHWADDR");
 		goto fail;
@@ -101,7 +85,7 @@ int main(int argc, char* argv[]) {
 	printf("Successfully got our MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n",
 	       src_mac[0],src_mac[1],src_mac[2],src_mac[3],src_mac[4],src_mac[5]);
 
-	/*prepare sockaddr_ll*/
+	/*prepare sockaddr_ll */
 	socket_address.sll_family   = AF_PACKET;
 	socket_address.sll_protocol = htons(ETH_P_IP);
 	socket_address.sll_ifindex  = ifindex;
@@ -117,22 +101,21 @@ int main(int argc, char* argv[]) {
 	socket_address.sll_addr[6]  = 0x00;
 	socket_address.sll_addr[7]  = 0x00;
 
-	// fill ethernet header
-	memcpy(ethhdr->sender_mac, src_mac, ETH_ALEN);
-	memcpy(ethhdr->target_mac, dst_mac, ETH_ALEN);
-	ethhdr->packet_type = htons(ETH_P_ARP);
+	/* fill ethernet header */
+	memcpy(eth_header->ether_shost, src_mac, ETH_ALEN);
+	memcpy(eth_header->ether_dhost, dst_mac, ETH_ALEN);
+	eth_header->ether_type = htons(ETHERTYPE_ARP);
 
-	// fill ARP header
-	arphdr->htype = htons(ARPHRD_ETHER);
-	arphdr->ptype = htons(0x800); // ethertype ip
-	arphdr->hlen = ETH_ALEN;
-	arphdr->plen = 4;
-	arphdr->opcode = htons(ARPOP_REQUEST);
-	// arphdr->target_mac already zeroed from memset()
-	memcpy(arphdr->target_mac, dst_mac, ETH_ALEN);
-	memcpy(arphdr->target_ip, dst_ip, 4);
-	memcpy(arphdr->sender_mac, src_mac, ETH_ALEN);
-	memcpy(arphdr->sender_ip, src_ip, 4);
+	/* fill ARP header */
+	arp_header->arp_hrd = htons(ARPHRD_ETHER);
+	arp_header->ea_hdr.ar_pro = htons(ETHERTYPE_IP);
+	arp_header->ea_hdr.ar_hln = ETH_ALEN;
+	arp_header->ea_hdr.ar_pln = 4;
+	arp_header->ea_hdr.ar_op = htons(ARPOP_REQUEST);
+	memcpy(arp_header->arp_tha, dst_mac, ETH_ALEN);
+	memcpy(arp_header->arp_tpa, dst_ip, 4);
+	memcpy(arp_header->arp_sha, src_mac, ETH_ALEN);
+	memcpy(arp_header->arp_spa, src_ip, 4);
 
 	if(sendto(sock, ether_frame, 60, 0, (const struct sockaddr*)&socket_address, sizeof(socket_address)) == -1) {
 		perror("sendto() failed");
@@ -141,7 +124,7 @@ int main(int argc, char* argv[]) {
 
 	printf("Sent ARP request to switch, waiting for reply...\n");
 
-	// Get the subnet id from the first received arp packet
+	/* Get the subnet id from the first received arp packet */
 	do {
 		memset(ether_frame, 0, ETH_FRAME_LEN);
 
@@ -153,11 +136,11 @@ int main(int argc, char* argv[]) {
 				goto fail;
 			}
 		}
-	} while(ntohs(ethhdr->packet_type) != ETH_P_ARP
-	     || ntohs(arphdr->opcode) != ARPOP_REPLY
-	     || memcmp(arphdr->sender_ip, dst_ip, 4) != 0);
+	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP
+	     || ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REPLY
+	     || memcmp(arp_header->arp_spa, dst_ip, 4) != 0);
 	for(i=0; i<ETH_ALEN; i++) {
-		sw_mac[i] = arphdr->sender_mac[i];
+		sw_mac[i] = arp_header->arp_sha[i];
 	}
 	printf("Got ARP reply from switch at %02x:%02x:%02x:%02x:%02x:%02x\n",
 	       sw_mac[0], sw_mac[1], sw_mac[2], sw_mac[3], sw_mac[4], sw_mac[5]);

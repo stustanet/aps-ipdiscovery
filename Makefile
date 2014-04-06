@@ -10,8 +10,8 @@ PREFIX = /usr/local
 INCS = -I. -I/usr/include
 LIBS = -L/usr/lib -lc
 
-#CFLAGS = -g -std=c99 -pedantic -Wall -O0 ${INCS} ${CPPFLAGS}
-CFLAGS = -std=c99 -pedantic -Wall -Os ${INCS}
+#CFLAGS = -g -pedantic -Wall -O0 ${INCS} ${CPPFLAGS}
+CFLAGS = -pedantic -Wall -Os ${INCS}
 #LDFLAGS = -g ${LIBS}
 LDFLAGS = -s ${LIBS}
 
