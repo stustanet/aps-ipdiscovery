@@ -75,7 +75,6 @@ int main(int argc, char* argv[]) {
 	 * be up to ensure, we only get meaningful ARPs. From the first received ARP
 	 * packet we take the subnet id x and from there on assume we are operating
 	 * in 10.150.x.0 */
-        do {
 	do {
 		memset(ether_frame, 0, ETH_FRAME_LEN);
 		if(recv(sock, ether_frame, ETH_FRAME_LEN, 0) == -1) {
@@ -86,11 +85,12 @@ int main(int argc, char* argv[]) {
 				goto fail;
 			}
 		}
-	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP);
-        } while((ntohs(arp_header->arp_spa[0]) != 10) & (ntohs(arp_header->arp_spa[1]) != 150));
+	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP &&
+	        arp_header->arp_spa[0] != 10 && arp_header->arp_spa[1] != 150);
 	subnet_id = arp_header->arp_spa[2];
-	fprintf(stderr, "Got ARP, assuming 10.150.%u.0 subnet.\n", subnet_id);
-	fprintf(stderr, "Got ARP from %u.%u.%u.%u.\n", arp_header->arp_spa[0], arp_header->arp_spa[1], arp_header->arp_spa[2], arp_header->arp_spa[3]);
+	fprintf(stderr, "Got ARP from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
+	        arp_header->arp_spa[0], arp_header->arp_spa[1], subnet_id,
+	        arp_header->arp_spa[3], subnet_id);
 
 	/* Step 2: Get the next gateways MAC address.
 	 * We send an ARP from 10.150.x.240 to the gateway at 10.150.x.254 to get
