@@ -242,7 +242,7 @@ int main(int argc, char* argv[]) {
 	     || memcmp(arp_header->arp_spa, sw_ip, 4) != 0
 	     || memcmp(arp_header->arp_sha, sw_mac, ETH_ALEN) != 0);
 	memcpy(src_ip, arp_header->arp_tpa, 4);
-	fprintf(stderr, "Got ARP reply from gateway at:\n");
+	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
 	fprintf(stdout, "%d.%d.%d.%d\n", src_ip[0], src_ip[1], src_ip[2], src_ip[3]);
 
 	close(sock);
