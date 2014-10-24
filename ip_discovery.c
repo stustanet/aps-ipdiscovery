@@ -62,6 +62,7 @@ int main(int argc, char* argv[]) {
 	uint8_t dst_mac[ETH_ALEN];
 	uint8_t sw_mac[ETH_ALEN];
 	uint8_t src_ip[4] = {10, 150, 0, 240};
+	uint8_t src_radv[4] = {0, 0, 0, 0};
 	uint8_t sw_ip[4] = {10, 150, 0, 254};
 
 	/* Open raw socket (needs root) to listen for arp */
@@ -85,12 +86,25 @@ int main(int argc, char* argv[]) {
 				goto fail;
 			}
 		}
-	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP &&
-	        arp_header->arp_spa[0] != 10 && arp_header->arp_spa[1] != 150);
-	subnet_id = arp_header->arp_spa[2];
-	fprintf(stderr, "Got ARP from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
-	        arp_header->arp_spa[0], arp_header->arp_spa[1], subnet_id,
-	        arp_header->arp_spa[3], subnet_id);
+	} while(ip_header->ip_p != IPPROTO_ICMP && icmp_header->type != ICMP_ROUTERADVERT );
+	//} while((ntohs(eth_header->ether_type) != ETHERTYPE_ARP &&
+	//        arp_header->arp_spa[0] != 10 && arp_header->arp_spa[1] != 150) ||
+        //        (ntohs(eth_header->ether_type) != ETHERTYPE_IP && ip_header->ip_p != IPPROTO_ICMP &&
+        //        icmp_header->type != ICMP_ROUTERADVERT ));
+	if (ntohs(eth_header->ether_type) == ETHERTYPE_ARP) {
+                subnet_id = arp_header->arp_spa[2];
+	        fprintf(stderr, "Got ARP from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
+	                arp_header->arp_spa[0], arp_header->arp_spa[1], subnet_id,
+	                arp_header->arp_spa[3], subnet_id);
+        } else if (icmp_header->type == ICMP_ROUTERADVERT) {
+                memcpy(src_radv,&(ip_header->ip_src), 4);
+                subnet_id = src_radv[2];
+                fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
+                        src_radv[0], src_radv[1], src_radv[2], src_radv[3], subnet_id);
+        } else {
+                perror("Something went wrong!\n");
+                return EXIT_FAILURE;
+        }
 
 	/* Step 2: Get the next gateways MAC address.
 	 * We send an ARP from 10.150.x.240 to the gateway at 10.150.x.254 to get
@@ -213,7 +227,7 @@ int main(int argc, char* argv[]) {
 
 		/* fill ip header */
 		ip_header->ip_id = rand() & 0xFFFF;
-		src_ip[3] = 8 + 8 * i;
+		src_ip[3] = 8 + 7 + 8 * i;
 		memcpy(&(ip_header->ip_src), src_ip, 4);
 		memset(&(ip_header->ip_sum), 0, 2);
 		ip_header->ip_sum = checksum((uint16_t*)ip_header, sizeof(ip));
@@ -237,11 +251,14 @@ int main(int argc, char* argv[]) {
 				goto fail;
 			}
 		}
-	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP
+	/*} while(ip_header->ip_p != IPPROTO_ICMP && icmp_header->type != ICMP_ECHOREPLY
+	     && memcmp(&(ip_header->ip_src), sw_ip, 4) != 0);*/
+	     } while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP
 	     || ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REQUEST
 	     || memcmp(arp_header->arp_spa, sw_ip, 4) != 0
 	     || memcmp(arp_header->arp_sha, sw_mac, ETH_ALEN) != 0);
-	memcpy(src_ip, arp_header->arp_tpa, 4);
+	/*memcpy(src_ip, &(ip_header->ip_dst), 4);*/
+        memcpy(src_ip, arp_header->arp_tpa, 4);
 	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
 	fprintf(stdout, "%d.%d.%d.%d\n", src_ip[0], src_ip[1], src_ip[2], src_ip[3]);
 
