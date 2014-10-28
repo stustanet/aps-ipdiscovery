@@ -45,8 +45,9 @@ uint16_t checksum(uint16_t *addr, int len) {
 
 int main(int argc, char* argv[]) {
 	int sock;
-	int i;
-	uint8_t subnet_id = 0;
+	int i,j;
+	time_t start;
+        uint8_t subnet_id = 0;
 	uint8_t ether_frame[ETH_FRAME_LEN];
 	ether_header* eth_header = (ether_header*)ether_frame;
 	ether_arp* arp_header    = (ether_arp*)(ether_frame + sizeof(ether_header));
@@ -197,6 +198,7 @@ int main(int argc, char* argv[]) {
 	 * The switch will only pass IP packets with the correct source IP through
 	 * to the gateway. Therefore we can identify the correct /29 subnet with the
 	 * one reply, we should get. */
+        for(j=0;j<8;j++) {
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 
 	/* fill icmp payload */
@@ -235,7 +237,7 @@ int main(int argc, char* argv[]) {
 
 		/* fill ip header */
 		ip_header->ip_id = rand() & 0xFFFF;
-		src_ip[3] = 8 + 7 + 8 * i;
+		src_ip[3] = 8 + j + 8 * i;
 		memcpy(&(ip_header->ip_src), src_ip, 4);
 		memset(&(ip_header->ip_sum), 0, 2);
 		ip_header->ip_sum = checksum((uint16_t*)ip_header, sizeof(ip));
@@ -248,6 +250,8 @@ int main(int argc, char* argv[]) {
 	}
 	fprintf(stderr, "Sent pings to gateway, waiting for reply...\n");
 
+        start = time(NULL);
+
 	/* Get the subnet id from the first received arp packet */
 	do {
 		memset(ether_frame, 0, ETH_FRAME_LEN);
@@ -259,12 +263,19 @@ int main(int argc, char* argv[]) {
 				goto fail;
 			}
 		}
+                if((double)(time(NULL)-start) >= 0.5)
+                    break;
 	/*} while(ip_header->ip_p != IPPROTO_ICMP && icmp_header->type != ICMP_ECHOREPLY
 	     && memcmp(&(ip_header->ip_src), sw_ip, 4) != 0);*/
 	     } while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP
 	     || ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REQUEST
 	     || memcmp(arp_header->arp_spa, sw_ip, 4) != 0
 	     || memcmp(arp_header->arp_sha, sw_mac, ETH_ALEN) != 0);
+        if ((double)(time(NULL)-start) <= 0.4)
+                break;
+
+        fprintf(stderr, "Got NO ARP reply from gateway. Trying next IP sequence\n");
+        }
 	/*memcpy(src_ip, &(ip_header->ip_dst), 4);*/
         memcpy(src_ip, arp_header->arp_tpa, 4);
 	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
