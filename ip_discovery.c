@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
 				goto fail;
 			}
 		}
-	} while(ip_header->ip_p != IPPROTO_ICMP && icmp_header->type != ICMP_ROUTERADVERT );
+	} while(!(ntohs(eth_header->ether_type) == ETHERTYPE_IP && ip_header->ip_p == IPPROTO_ICMP && icmp_header->type == ICMP_ROUTERADVERT ));
 	/*} while((ntohs(eth_header->ether_type) != ETHERTYPE_ARP &&
 	        arp_header->arp_spa[0] != 10 && arp_header->arp_spa[1] != 150) ||
                 (ntohs(eth_header->ether_type) != ETHERTYPE_IP && ip_header->ip_p != IPPROTO_ICMP &&
@@ -112,6 +112,17 @@ int main(int argc, char* argv[]) {
                         src_radv[0], src_radv[1], src_radv[2], src_radv[3], subnet_id);
         } else {
                 perror("Something went wrong!\n");
+                fprintf(stderr, "IP header type: %x\n", icmp_header->type);
+                fprintf(stderr, "ICMP-Header type: %x\n", ip_header->ip_p);
+                memcpy(src_radv,&(ip_header->ip_src), 4);
+                memcpy(sw_mac_ist, eth_header->ether_shost, ETH_ALEN);
+                fprintf(stderr, "Got ICMP-RADV from: %02X:%02X:%02X:%02X:%02X:%02X\n", sw_mac_ist[0],sw_mac_ist[1],sw_mac_ist[2],sw_mac_ist[3],sw_mac_ist[4],sw_mac_ist[5]);
+                /*TODO: What do we do, when the sender is wrong? Abort, Retry, Proactive DOS on attacker ;)*/
+                if (memcmp(sw_mac_soll, eth_header->ether_shost, ETH_ALEN) != 0)
+                    fprintf(stderr, "ICMP-RADV is from wrong sender");
+                subnet_id = src_radv[2];
+                fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
+                        src_radv[0], src_radv[1], src_radv[2], src_radv[3], subnet_id);
                 return EXIT_FAILURE;
         }
 
