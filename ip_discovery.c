@@ -22,7 +22,7 @@ typedef struct ether_arp ether_arp;
 typedef struct ip ip;
 typedef struct icmphdr icmphdr;
 
-/* BEWARE: The eth0 interface has to be up for this to work */
+/* BEWARE: The eth1 interface has to be up for this to work */
 
 /* Checksum function */
 uint16_t checksum(uint16_t *addr, int len) {
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
 	/* Step 1: Get the subnet id from the first received ARP packet.
          * NEW: We listen for ICMP Router advertisements!
-	 * We listen passively on all interfaces (only the upstream eth0 port should
+	 * We listen passively on all interfaces (only the upstream eth1 port should
 	 * be up to ensure, we only get meaningful ARPs. From the first received ARP
 	 * packet we take the subnet id x and from there on assume we are operating
 	 * in 10.150.x.0 */
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
 	src_ip[2] = sw_ip[2] = subnet_id;
 
 	/* retrieve ethernet interface index */
-	strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
+	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ);
 	if(ioctl(sock, SIOCGIFINDEX, &ifr) == -1) {
 		perror("SIOCGIFINDEX");
 		goto fail;
