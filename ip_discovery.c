@@ -48,6 +48,7 @@ int main(int argc, char* argv[]) {
 	int i,j;
 	time_t start;
         uint8_t subnet_id = 0;
+        uint8_t dorm_id = 0;
 	uint8_t ether_frame[ETH_FRAME_LEN];
 	ether_header* eth_header = (ether_header*)ether_frame;
 	ether_arp* arp_header    = (ether_arp*)(ether_frame + sizeof(ether_header));
@@ -62,7 +63,8 @@ int main(int argc, char* argv[]) {
 	uint8_t src_mac[ETH_ALEN];
 	uint8_t dst_mac[ETH_ALEN];
 	uint8_t sw_mac[ETH_ALEN];
-	uint8_t sw_mac_soll[ETH_ALEN] = {0x00, 0x18, 0x71, 0xdc, 0xe7, 0x00}; /*MAC from StuSta GW*/
+	uint8_t sw_mac_soll_stusta[ETH_ALEN] = {0x00, 0x18, 0x71, 0xdc, 0xe7, 0x00}; /*MAC from StuSta GW*/
+	uint8_t sw_mac_soll_mb[ETH_ALEN] = {0x00, 0x18, 0x71, 0xdc, 0xe7, 0x00}; /*MAC from MB67 GW*/
 	uint8_t sw_mac_ist[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; /*MAC from StuSta GW we see*/
 	uint8_t src_ip[4] = {10, 150, 0, 240};
 	uint8_t src_radv[4] = {0, 0, 0, 0};
@@ -96,20 +98,26 @@ int main(int argc, char* argv[]) {
                 (ntohs(eth_header->ether_type) != ETHERTYPE_IP && ip_header->ip_p != IPPROTO_ICMP &&
                 icmp_header->type != ICMP_ROUTERADVERT ));*/
 	if (ntohs(eth_header->ether_type) == ETHERTYPE_ARP) {
+                dorm_id = arp_header->arp_spa[1];
                 subnet_id = arp_header->arp_spa[2];
-	        fprintf(stderr, "Got ARP from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
+	        fprintf(stderr, "Got ARP from %u.%u.%u.%u assuming 10.%u.%u.0 subnet.\n",
 	                arp_header->arp_spa[0], arp_header->arp_spa[1], subnet_id,
-	                arp_header->arp_spa[3], subnet_id);
+	                arp_header->arp_spa[3], dorm_id ,subnet_id);
         } else if (icmp_header->type == ICMP_ROUTERADVERT) {
                 memcpy(src_radv,&(ip_header->ip_src), 4);
                 memcpy(sw_mac_ist, eth_header->ether_shost, ETH_ALEN);
                 fprintf(stderr, "Got ICMP-RADV from: %02X:%02X:%02X:%02X:%02X:%02X\n", sw_mac_ist[0],sw_mac_ist[1],sw_mac_ist[2],sw_mac_ist[3],sw_mac_ist[4],sw_mac_ist[5]);
                 /*TODO: What do we do, when the sender is wrong? Abort, Retry, Proactive DOS on attacker ;)*/
-                if (memcmp(sw_mac_soll, eth_header->ether_shost, ETH_ALEN) != 0)
-                    fprintf(stderr, "ICMP-RADV is from wrong sender");
+                if (memcmp(sw_mac_soll_stusta, eth_header->ether_shost, ETH_ALEN) == 0)
+                    fprintf(stderr, "ICMP-RADV is from StuSta GW\n");
+		else if (memcmp(sw_mac_soll_mb, eth_header->ether_shost, ETH_ALEN) == 0)
+                    fprintf(stderr, "ICMP-RADV is from MB67 GW\n");
+		else
+		    fprintf(stderr, "ICMP-RADV ist from unknown source!");
+                dorm_id = src_radv[1];
                 subnet_id = src_radv[2];
-                fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
-                        src_radv[0], src_radv[1], src_radv[2], src_radv[3], subnet_id);
+                fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming 10.%u.%u.0 subnet.\n",
+                        src_radv[0], src_radv[1], src_radv[2], src_radv[3], dorm_id, subnet_id);
         } else {
                 perror("Something went wrong!\n");
                 fprintf(stderr, "IP header type: %x\n", icmp_header->type);
@@ -118,11 +126,14 @@ int main(int argc, char* argv[]) {
                 memcpy(sw_mac_ist, eth_header->ether_shost, ETH_ALEN);
                 fprintf(stderr, "Got ICMP-RADV from: %02X:%02X:%02X:%02X:%02X:%02X\n", sw_mac_ist[0],sw_mac_ist[1],sw_mac_ist[2],sw_mac_ist[3],sw_mac_ist[4],sw_mac_ist[5]);
                 /*TODO: What do we do, when the sender is wrong? Abort, Retry, Proactive DOS on attacker ;)*/
-                if (memcmp(sw_mac_soll, eth_header->ether_shost, ETH_ALEN) != 0)
-                    fprintf(stderr, "ICMP-RADV is from wrong sender");
+                if (memcmp(sw_mac_soll_stusta, eth_header->ether_shost, ETH_ALEN) != 0)
+                    fprintf(stderr, "ICMP-RADV is not from StuSta GW\n");
+                if (memcmp(sw_mac_soll_mb, eth_header->ether_shost, ETH_ALEN) != 0)
+                    fprintf(stderr, "ICMP-RADV is not from MB67 GW\n");
+                dorm_id = src_radv[1];
                 subnet_id = src_radv[2];
-                fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming 10.150.%u.0 subnet.\n",
-                        src_radv[0], src_radv[1], src_radv[2], src_radv[3], subnet_id);
+                fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming 10.%u.%u.0 subnet.\n",
+                        src_radv[0], src_radv[1], src_radv[2], src_radv[3], dorm_id, subnet_id);
                 return EXIT_FAILURE;
         }
 
@@ -133,6 +144,7 @@ int main(int argc, char* argv[]) {
 	 * using it. */
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 	src_ip[2] = sw_ip[2] = subnet_id;
+	src_ip[1] = sw_ip[1] = dorm_id;
 
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ);
