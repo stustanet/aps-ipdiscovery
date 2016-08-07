@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 	uint8_t dst_mac[ETH_ALEN];
 	uint8_t sw_mac[ETH_ALEN];
 	uint8_t sw_mac_soll_stusta[ETH_ALEN] = {0x00, 0x18, 0x71, 0xdc, 0xe7, 0x00}; /*MAC from StuSta GW*/
-	uint8_t sw_mac_soll_mb[ETH_ALEN] = {0x00, 0x18, 0x71, 0xdc, 0xe7, 0x00}; /*MAC from MB67 GW*/
+	uint8_t sw_mac_soll_mb[ETH_ALEN] = {0x70, 0x10, 0x6f, 0x18, 0x84, 0x00}; /*MAC from MB67 GW*/
 	uint8_t sw_mac_ist[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; /*MAC from StuSta GW we see*/
 	uint8_t src_ip[4] = {10, 150, 0, 240};
 	uint8_t src_radv[4] = {0, 0, 0, 0};
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
 		else if (memcmp(sw_mac_soll_mb, eth_header->ether_shost, ETH_ALEN) == 0)
                     fprintf(stderr, "ICMP-RADV is from MB67 GW\n");
 		else
-		    fprintf(stderr, "ICMP-RADV ist from unknown source!");
+		    fprintf(stderr, "ICMP-RADV ist from unknown source!\n");
                 dorm_id = src_radv[1];
                 subnet_id = src_radv[2];
                 fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming 10.%u.%u.0 subnet.\n",
