@@ -137,6 +137,12 @@ int main(int argc, char* argv[]) {
                 return EXIT_FAILURE;
         }
 
+	/* StuSta and MB67 have different Gateways
+	 * check for non StuSta and change GW */
+	if ((dorm_id != 150) || (subnet_id > 127))
+		sw_ip[3] = 1;
+
+
 	/* Step 2: Get the next gateways MAC address.
 	 * We send an ARP from 10.150.x.240 to the gateway at 10.150.x.254 to get
 	 * it's MAC. The ARP-caches of all neighbours from 10.150.x.0 get a wrong
