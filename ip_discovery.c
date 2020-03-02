@@ -122,8 +122,8 @@ int main(int argc, char* argv[]) {
 	dorm_id = src_radv[1];
 	subnet_id = src_radv[2];
 	fprintf(stderr, "Got ICMP-RADV from %hhu.%hhu.%hhu.%hhu assuming "
-	    "10.%hhu.%hhu.0 subnet.\n", src_radv[0], src_radv[1],
-	    src_radv[2], src_radv[3], dorm_id, subnet_id);
+	    "%hhu.%hhu.%hhu.0/28 subnet.\n", src_radv[0], src_radv[1],
+	    src_radv[2], src_radv[3], src_radv[0], dorm_id, subnet_id);
 
 	/*
 	 * StuSta and MB67 have different Gateways
@@ -142,6 +142,7 @@ int main(int argc, char* argv[]) {
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 	src_ip[2] = sw_ip[2] = subnet_id;
 	src_ip[1] = sw_ip[1] = dorm_id;
+	src_ip[0] = sw_ip[0] = src_radv[0];
 
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
