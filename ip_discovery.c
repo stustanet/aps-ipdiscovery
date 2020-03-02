@@ -226,37 +226,37 @@ int main(int argc, char* argv[]) {
 	 * through to the gateway. Therefore we can identify the correct /29
 	 * subnet with the one reply, we should get.
 	 */
+	memset(ether_frame, 0, ETH_FRAME_LEN);
+
+	/* fill icmp payload */
+	memcpy(icmp_payload, payload_data, payload_len);
+
+	/* fill icmp header */
+	icmp_header->type = ICMP_ECHO;
+	icmp_header->code = 0;
+
+	/* fill ip header */
+	ip_header->ip_hl = sizeof(ip) / sizeof(uint32_t);
+	ip_header->ip_v = 4;
+	ip_header->ip_tos = 0;
+	ip_header->ip_len = htons(sizeof(ip) + sizeof(icmphdr) +
+	    payload_len);
+	ip_header->ip_off = 0;
+	ip_header->ip_ttl = 255;
+	ip_header->ip_p = IPPROTO_ICMP;
+	memcpy(&(ip_header->ip_dst), sw_ip, 4);
+
+	/* fill ethernet header */
+	memcpy(eth_header->ether_shost, src_mac, ETH_ALEN);
+	memcpy(eth_header->ether_dhost, sw_mac, ETH_ALEN);
+	eth_header->ether_type = htons(ETH_P_IP);
+
+	/* fix socket_address content */
+	memcpy(socket_address.sll_addr, sw_mac, ETH_ALEN);
+
+	/* generate 29 icmp echo requests */
+	srand(time(NULL));
 	for(j = 0; j < 8; j++) {
-		memset(ether_frame, 0, ETH_FRAME_LEN);
-
-		/* fill icmp payload */
-		memcpy(icmp_payload, payload_data, payload_len);
-
-		/* fill icmp header */
-		icmp_header->type = ICMP_ECHO;
-		icmp_header->code = 0;
-
-		/* fill ip header */
-		ip_header->ip_hl = sizeof(ip) / sizeof(uint32_t);
-		ip_header->ip_v = 4;
-		ip_header->ip_tos = 0;
-		ip_header->ip_len = htons(sizeof(ip) + sizeof(icmphdr) +
-		    payload_len);
-		ip_header->ip_off = 0;
-		ip_header->ip_ttl = 255;
-		ip_header->ip_p = IPPROTO_ICMP;
-		memcpy(&(ip_header->ip_dst), sw_ip, 4);
-
-		/* fill ethernet header */
-		memcpy(eth_header->ether_shost, src_mac, ETH_ALEN);
-		memcpy(eth_header->ether_dhost, sw_mac, ETH_ALEN);
-		eth_header->ether_type = htons(ETH_P_IP);
-
-		/* fix socket_address content */
-		memcpy(socket_address.sll_addr, sw_mac, ETH_ALEN);
-
-		/* generate 29 icmp echo requests */
-		srand(time(NULL));
 		for(i = 0; i < 29; i++) {
 			/* fill icmp header */
 			icmp_header->un.echo.id = rand() & 0xFFFF;
