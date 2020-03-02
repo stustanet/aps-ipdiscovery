@@ -80,6 +80,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	/*
+	 * TODO
+	 * bind socket to interface mentioned in
+	 * /etc/config/ip_discovery or via flag
+	 */
+
+	/*
 	 * Step 1: Get the subnet id from the first received ARP packet.
 	 * NEW: We listen for ICMP Router advertisements!
 	 * We listen passively on all interfaces (only the upstream eth1 port
