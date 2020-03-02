@@ -67,10 +67,6 @@ int main(int argc, char* argv[]) {
 	uint8_t src_mac[ETH_ALEN];
 	uint8_t dst_mac[ETH_ALEN];
 	uint8_t sw_mac[ETH_ALEN];
-	uint8_t sw_mac_soll_stusta[ETH_ALEN] = {0x00, 0x18, 0x71, 0xdc, 0xe7,
-	    0x00}; /*MAC from StuSta GW*/
-	uint8_t sw_mac_soll_mb[ETH_ALEN] = {0x70, 0x10, 0x6f, 0x18, 0x84,
-	    0x00}; /*MAC from MB67 GW*/
 	uint8_t sw_mac_ist[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 	    /* MAC from StuSta GW we see */
 	uint8_t src_ip[4] = {10, 150, 0, 240};
