@@ -109,9 +109,9 @@ int main(int argc, char* argv[]) {
 	memcpy(src_radv,&(ip_header->ip_src), 4);
 	memcpy(sw_mac_ist, eth_header->ether_shost, ETH_ALEN);
 	fprintf(stderr, "Got ICMP-RADV from: "
-	    "%02X:%02X:%02X:%02X:%02X:%02X\n", sw_mac_ist[0],
-	    sw_mac_ist[1], sw_mac_ist[2], sw_mac_ist[3],
-	    sw_mac_ist[4], sw_mac_ist[5]);
+	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", sw_mac_ist[0],
+	    sw_mac_ist[1], sw_mac_ist[2], sw_mac_ist[3], sw_mac_ist[4],
+	    sw_mac_ist[5]);
 
 	/*
 	 * TODO: What do we do, when the sender is wrong?
@@ -119,8 +119,8 @@ int main(int argc, char* argv[]) {
 	 */
 	dorm_id = src_radv[1];
 	subnet_id = src_radv[2];
-	fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming "
-	    "10.%u.%u.0 subnet.\n", src_radv[0], src_radv[1],
+	fprintf(stderr, "Got ICMP-RADV from %hhu.%hhu.%hhu.%hhu assuming "
+	    "10.%hhu.%hhu.0 subnet.\n", src_radv[0], src_radv[1],
 	    src_radv[2], src_radv[3], dorm_id, subnet_id);
 
 	/*
@@ -157,9 +157,9 @@ int main(int argc, char* argv[]) {
 	}
 	memcpy(src_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	memset(dst_mac, 0xFF, ETH_ALEN);
-	fprintf(stderr, "Own MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n",
-	    src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4],
-	    src_mac[5]);
+	fprintf(stderr, "Own MAC address: "
+	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", src_mac[0],
+	    src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
 
 	/* prepare sockaddr_ll */
 	socket_address.sll_family = AF_PACKET;
@@ -217,8 +217,8 @@ int main(int argc, char* argv[]) {
 
 	memcpy(sw_mac, arp_header->arp_sha, ETH_ALEN);
 	fprintf(stderr, "Got ARP reply from gateway at "
-	    "%02x:%02x:%02x:%02x:%02x:%02x\n", sw_mac[0], sw_mac[1], sw_mac[2],
-	    sw_mac[3], sw_mac[4], sw_mac[5]);
+	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", sw_mac[0],
+	    sw_mac[1], sw_mac[2], sw_mac[3], sw_mac[4], sw_mac[5]);
 
 	/*
 	 * Step 3: send a ping from each valid /29 to determine the right one.
@@ -314,8 +314,8 @@ int main(int argc, char* argv[]) {
 
 	memcpy(src_ip, arp_header->arp_tpa, 4);
 	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
-	fprintf(stdout, "%d.%d.%d.%d\n", src_ip[0], src_ip[1], src_ip[2],
-	    src_ip[3]);
+	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
+	    src_ip[0], src_ip[1], src_ip[2], src_ip[3]);
 
 	close(sock);
 	return EXIT_SUCCESS;
