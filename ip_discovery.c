@@ -256,8 +256,8 @@ int main(int argc, char* argv[]) {
 
 	/* generate 29 icmp echo requests */
 	srand(time(NULL)); /* consider getrandom(2) */
-	for(j = 0; j < 8; j++) {
-		for(i = 0; i < 29; i++) {
+	for(i = 0; i < 8; i++) {
+		for(j = 0; j < 29; j++) {
 			/* fill icmp header */
 			icmp_header->un.echo.id = rand() & 0xFFFF;
 			icmp_header->un.echo.sequence = rand() & 0xFFFF;
@@ -267,7 +267,7 @@ int main(int argc, char* argv[]) {
 
 			/* fill ip header */
 			ip_header->ip_id = rand() & 0xFFFF;
-			src_ip[3] = 8 + j + 8 * i;
+			src_ip[3] = 8 + i + 8 * j;
 			memcpy(&(ip_header->ip_src), src_ip, 4);
 			memset(&(ip_header->ip_sum), 0, 2);
 			ip_header->ip_sum = checksum((uint16_t*)ip_header,
