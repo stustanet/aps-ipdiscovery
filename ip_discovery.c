@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
 	memcpy(socket_address.sll_addr, sw_mac, ETH_ALEN);
 
 	/* generate 29 icmp echo requests */
-	srand(time(NULL));
+	srand(time(NULL)); /* consider getrandom(2) */
 	for(j = 0; j < 8; j++) {
 		for(i = 0; i < 29; i++) {
 			/* fill icmp header */
