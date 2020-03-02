@@ -117,14 +117,6 @@ int main(int argc, char* argv[]) {
 	 * TODO: What do we do, when the sender is wrong?
 	 * Abort, Retry, Proactive DOS on attacker ;)
 	 */
-	if (memcmp(sw_mac_soll_stusta, eth_header->ether_shost,
-	    ETH_ALEN) == 0) /* XXX delete me */
-		fprintf(stderr, "ICMP-RADV is from StuSta GW\n");
-	else if (memcmp(sw_mac_soll_mb, eth_header->ether_shost,
-	    ETH_ALEN) == 0) /* XXX delete me */
-		fprintf(stderr, "ICMP-RADV is from MB67 GW\n");
-	else
-	    fprintf(stderr, "ICMP-RADV ist from unknown source!\n");
 	dorm_id = src_radv[1];
 	subnet_id = src_radv[2];
 	fprintf(stderr, "Got ICMP-RADV from %u.%u.%u.%u assuming "
