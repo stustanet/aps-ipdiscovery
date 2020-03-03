@@ -71,7 +71,6 @@ int main(int argc, char* argv[]) {
 	    /* MAC from StuSta GW we see */
 	uint8_t src_ip[4] = {10, 150, 0, 240};
 	uint8_t radv_ip[4] = {0, 0, 0, 0};
-	uint8_t sw_ip[4] = {10, 150, 0, 254};
 
 	/* Open raw socket (needs root) to listen for arp */
 	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -108,13 +107,8 @@ int main(int argc, char* argv[]) {
 		ip_header->ip_p == IPPROTO_ICMP &&
 		icmp_header->type == ICMP_ROUTERADVERT));
 
-<<<<<<< HEAD
-	memcpy(src_radv,&(ip_header->ip_src), 4);
-	memcpy(radv_mac, eth_header->ether_shost, ETH_ALEN);
-=======
 	memcpy(radv_ip,&(ip_header->ip_src), 4);
-	memcpy(mac_radv, eth_header->ether_shost, ETH_ALEN);
->>>>>>> a67f55c... rename router advertisement ip address
+	memcpy(radv_mac, eth_header->ether_shost, ETH_ALEN);
 	fprintf(stderr, "Got ICMP-RADV from: "
 	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", radv_mac[0],
 	    radv_mac[1], radv_mac[2], radv_mac[3], radv_mac[4], radv_mac[5]);
@@ -129,13 +123,6 @@ int main(int argc, char* argv[]) {
 	    "%hhu.%hhu.%hhu.0/24 subnet.\n", radv_ip[0], radv_ip[1],
 	    radv_ip[2], radv_ip[3], radv_ip[0], dorm_id, subnet_id);
 
-	/*
-	 * StuSta and MB67 have different Gateways
-	 * check for non StuSta and change GW
-	 */
-	if ((dorm_id != 150) || (subnet_id > 127))
-		sw_ip[3] = 1;
-
 
 	/* Step 2: Get the next gateways MAC address.
 	 * We send an ARP from 10.150.x.240 to the gateway at 10.150.x.254
@@ -144,9 +131,9 @@ int main(int argc, char* argv[]) {
 	 * and Wolfi approved using it.
 	 */
 	memset(ether_frame, 0, ETH_FRAME_LEN);
-	src_ip[2] = sw_ip[2] = subnet_id;
-	src_ip[1] = sw_ip[1] = dorm_id;
-	src_ip[0] = sw_ip[0] = radv_ip[0];
+	src_ip[2] = subnet_id;
+	src_ip[1] = dorm_id;
+	src_ip[0] = radv_ip[0];
 
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
@@ -191,7 +178,7 @@ int main(int argc, char* argv[]) {
 	arp_header->ea_hdr.ar_pln = 4;
 	arp_header->ea_hdr.ar_op = htons(ARPOP_REQUEST);
 	memcpy(arp_header->arp_tha, dst_mac, ETH_ALEN);
-	memcpy(arp_header->arp_tpa, sw_ip, 4);
+	memcpy(arp_header->arp_tpa, radv_ip, 4);
 	memcpy(arp_header->arp_sha, src_mac, ETH_ALEN);
 	memcpy(arp_header->arp_spa, src_ip, 4);
 
@@ -220,7 +207,7 @@ int main(int argc, char* argv[]) {
 		}
 	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP ||
 	     ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REPLY ||
-	     memcmp(arp_header->arp_spa, sw_ip, 4) != 0);
+	     memcmp(arp_header->arp_spa, radv_ip, 4) != 0);
 
 	memcpy(sw_mac, arp_header->arp_sha, ETH_ALEN);
 	fprintf(stderr, "Got ARP reply from gateway at "
@@ -251,7 +238,7 @@ int main(int argc, char* argv[]) {
 	ip_header->ip_off = 0;
 	ip_header->ip_ttl = 255;
 	ip_header->ip_p = IPPROTO_ICMP;
-	memcpy(&(ip_header->ip_dst), sw_ip, 4);
+	memcpy(&(ip_header->ip_dst), radv_ip, 4);
 
 	/* fill ethernet header */
 	memcpy(eth_header->ether_shost, src_mac, ETH_ALEN);
@@ -309,7 +296,7 @@ int main(int argc, char* argv[]) {
 			    break;
 		} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP ||
 		    ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REQUEST ||
-		    memcmp(arp_header->arp_spa, sw_ip, 4) != 0 ||
+		    memcmp(arp_header->arp_spa, radv_ip, 4) != 0 ||
 		    memcmp(arp_header->arp_sha, sw_mac, ETH_ALEN) != 0);
 
 		if ((double)(time(NULL)-start) <= 0.4)
