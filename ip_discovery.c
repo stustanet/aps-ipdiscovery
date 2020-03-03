@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 	uint8_t radv_mac[ETH_ALEN];
 	    /* MAC from StuSta GW we see */
 	uint8_t src_ip[4] = {10, 150, 0, 240};
-	uint8_t src_radv[4] = {0, 0, 0, 0};
+	uint8_t radv_ip[4] = {0, 0, 0, 0};
 	uint8_t sw_ip[4] = {10, 150, 0, 254};
 
 	/* Open raw socket (needs root) to listen for arp */
@@ -108,8 +108,13 @@ int main(int argc, char* argv[]) {
 		ip_header->ip_p == IPPROTO_ICMP &&
 		icmp_header->type == ICMP_ROUTERADVERT));
 
+<<<<<<< HEAD
 	memcpy(src_radv,&(ip_header->ip_src), 4);
 	memcpy(radv_mac, eth_header->ether_shost, ETH_ALEN);
+=======
+	memcpy(radv_ip,&(ip_header->ip_src), 4);
+	memcpy(mac_radv, eth_header->ether_shost, ETH_ALEN);
+>>>>>>> a67f55c... rename router advertisement ip address
 	fprintf(stderr, "Got ICMP-RADV from: "
 	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", radv_mac[0],
 	    radv_mac[1], radv_mac[2], radv_mac[3], radv_mac[4], radv_mac[5]);
@@ -118,11 +123,11 @@ int main(int argc, char* argv[]) {
 	 * TODO: What do we do, when the sender is wrong?
 	 * Abort, Retry, Proactive DOS on attacker ;)
 	 */
-	dorm_id = src_radv[1];
-	subnet_id = src_radv[2];
+	dorm_id = radv_ip[1];
+	subnet_id = radv_ip[2];
 	fprintf(stderr, "Got ICMP-RADV from %hhu.%hhu.%hhu.%hhu assuming "
-	    "%hhu.%hhu.%hhu.0/24 subnet.\n", src_radv[0], src_radv[1],
-	    src_radv[2], src_radv[3], src_radv[0], dorm_id, subnet_id);
+	    "%hhu.%hhu.%hhu.0/24 subnet.\n", radv_ip[0], radv_ip[1],
+	    radv_ip[2], radv_ip[3], radv_ip[0], dorm_id, subnet_id);
 
 	/*
 	 * StuSta and MB67 have different Gateways
@@ -141,7 +146,7 @@ int main(int argc, char* argv[]) {
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 	src_ip[2] = sw_ip[2] = subnet_id;
 	src_ip[1] = sw_ip[1] = dorm_id;
-	src_ip[0] = sw_ip[0] = src_radv[0];
+	src_ip[0] = sw_ip[0] = radv_ip[0];
 
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
