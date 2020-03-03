@@ -63,8 +63,6 @@ int main(int argc, char* argv[]) {
 	struct ifreq ifr;
 	struct sockaddr_ll socket_address;
 	uint8_t my_mac[ETH_ALEN];
-	uint8_t dst_mac[ETH_ALEN];
-	uint8_t sw_mac[ETH_ALEN];
 	uint8_t radv_mac[ETH_ALEN];
 	uint8_t radv_ip[4] = {0, 0, 0, 0};
 	uint8_t my_ip[4] = {10, 150, 0, 240};
@@ -118,16 +116,6 @@ int main(int argc, char* argv[]) {
 	    "%hhu.%hhu.%hhu.0/24 subnet.\n", radv_ip[0], radv_ip[1],
 	    radv_ip[2], radv_ip[3], radv_ip[0], radv_ip[1], radv_ip[2]);
 
-
-	/* Step 2: Get the next gateways MAC address.
-	 * We send an ARP from 10.150.x.240 to the gateway at 10.150.x.254
-	 * to get it's MAC. The ARP-caches of all neighbours from 10.150.x.0
-	 * get a wrong entry for 10.150.x.240, but this address is not used
-	 * and Wolfi approved using it.
-	 */
-	memset(ether_frame, 0, ETH_FRAME_LEN);
-	memcpy(my_ip, radv_ip, 4);
-
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
 	if(ioctl(sock, SIOCGIFINDEX, &ifr) == -1) {
@@ -143,7 +131,6 @@ int main(int argc, char* argv[]) {
 		goto fail;
 	}
 	memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
-	memset(dst_mac, 0xFF, ETH_ALEN);
 	fprintf(stderr, "Own MAC address: "
 	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", my_mac[0],
 	    my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
@@ -155,60 +142,12 @@ int main(int argc, char* argv[]) {
 	socket_address.sll_hatype = ARPHRD_ETHER;
 	socket_address.sll_pkttype = PACKET_OTHERHOST;
 	socket_address.sll_halen = ETH_ALEN;
-	memcpy(socket_address.sll_addr, dst_mac, ETH_ALEN);
+	memset(socket_address.sll_addr, 0xFF, ETH_ALEN);
 	socket_address.sll_addr[6] = 0x00;
 	socket_address.sll_addr[7] = 0x00;
 
-	/* fill ethernet header */
-	memcpy(eth_header->ether_shost, my_mac, ETH_ALEN);
-	memcpy(eth_header->ether_dhost, dst_mac, ETH_ALEN);
-	eth_header->ether_type = htons(ETHERTYPE_ARP);
-
-	/* fill ARP header */
-	arp_header->arp_hrd = htons(ARPHRD_ETHER);
-	arp_header->ea_hdr.ar_pro = htons(ETHERTYPE_IP);
-	arp_header->ea_hdr.ar_hln = ETH_ALEN;
-	arp_header->ea_hdr.ar_pln = 4;
-	arp_header->ea_hdr.ar_op = htons(ARPOP_REQUEST);
-	memcpy(arp_header->arp_tha, dst_mac, ETH_ALEN);
-	memcpy(arp_header->arp_tpa, radv_ip, 4);
-	memcpy(arp_header->arp_sha, my_mac, ETH_ALEN);
-	memcpy(arp_header->arp_spa, my_ip, 4);
-
 	/*
-	 * finally send our manually crafted, black-magic
-	 * containing ARP request
-	 */
-	if(sendto(sock, ether_frame, 60, 0,
-	    (const struct sockaddr*)&socket_address,
-	    sizeof(socket_address)) == -1) {
-		perror("sendto() failed");
-		goto fail;
-	}
-	fprintf(stderr, "Sent ARP request to gateway, waiting for reply...\n");
-
-	/* Get the gateways MAC address from its ARP reply */
-	do {
-		memset(ether_frame, 0, ETH_FRAME_LEN);
-		if(recv(sock, ether_frame, ETH_FRAME_LEN, 0) == -1) {
-			if(errno == EINTR) {
-				continue;
-			} else {
-				perror("recv() failed");
-				goto fail;
-			}
-		}
-	} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP ||
-	     ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REPLY ||
-	     memcmp(arp_header->arp_spa, radv_ip, 4) != 0);
-
-	memcpy(sw_mac, arp_header->arp_sha, ETH_ALEN);
-	fprintf(stderr, "Got ARP reply from gateway at "
-	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", sw_mac[0],
-	    sw_mac[1], sw_mac[2], sw_mac[3], sw_mac[4], sw_mac[5]);
-
-	/*
-	 * Step 3: send a ping from each valid /29 to determine the right one.
+	 * Step 2: send a ping from each valid /29 to determine the right one.
 	 * The switch will only pass IP packets with the correct source IP
 	 * through to the gateway. Therefore we can identify the correct /29
 	 * subnet with the one reply, we should get.
@@ -235,12 +174,13 @@ int main(int argc, char* argv[]) {
 
 	/* fill ethernet header */
 	memcpy(eth_header->ether_shost, my_mac, ETH_ALEN);
-	memcpy(eth_header->ether_dhost, sw_mac, ETH_ALEN);
+	memcpy(eth_header->ether_dhost, radv_mac, ETH_ALEN);
 	eth_header->ether_type = htons(ETH_P_IP);
 
 	/* fix socket_address content */
-	memcpy(socket_address.sll_addr, sw_mac, ETH_ALEN);
+	memcpy(socket_address.sll_addr, radv_mac, ETH_ALEN);
 
+	memcpy(my_ip, radv_ip, 4);
 	/* generate 29 icmp echo requests */
 	srand(time(NULL)); /* consider getrandom(2) */
 	for(i = 0; i < 8; i++) {
@@ -290,7 +230,7 @@ int main(int argc, char* argv[]) {
 		} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP ||
 		    ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REQUEST ||
 		    memcmp(arp_header->arp_spa, radv_ip, 4) != 0 ||
-		    memcmp(arp_header->arp_sha, sw_mac, ETH_ALEN) != 0);
+		    memcmp(arp_header->arp_sha, radv_mac, ETH_ALEN) != 0);
 
 		if ((double)(time(NULL)-start) <= 0.4)
 			break;
