@@ -66,7 +66,6 @@ int main(int argc, char* argv[]) {
 	uint8_t dst_mac[ETH_ALEN];
 	uint8_t sw_mac[ETH_ALEN];
 	uint8_t radv_mac[ETH_ALEN];
-	    /* MAC from StuSta GW we see */
 	uint8_t radv_ip[4] = {0, 0, 0, 0};
 	uint8_t my_ip[4] = {10, 150, 0, 240};
 
