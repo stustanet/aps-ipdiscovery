@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
 	dorm_id = src_radv[1];
 	subnet_id = src_radv[2];
 	fprintf(stderr, "Got ICMP-RADV from %hhu.%hhu.%hhu.%hhu assuming "
-	    "%hhu.%hhu.%hhu.0/28 subnet.\n", src_radv[0], src_radv[1],
+	    "%hhu.%hhu.%hhu.0/24 subnet.\n", src_radv[0], src_radv[1],
 	    src_radv[2], src_radv[3], src_radv[0], dorm_id, subnet_id);
 
 	/*
