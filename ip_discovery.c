@@ -67,8 +67,8 @@ int main(int argc, char* argv[]) {
 	uint8_t sw_mac[ETH_ALEN];
 	uint8_t radv_mac[ETH_ALEN];
 	    /* MAC from StuSta GW we see */
-	uint8_t src_ip[4] = {10, 150, 0, 240};
 	uint8_t radv_ip[4] = {0, 0, 0, 0};
+	uint8_t my_ip[4] = {10, 150, 0, 240};
 
 	/* Open raw socket (needs root) to listen for arp */
 	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
 	 * and Wolfi approved using it.
 	 */
 	memset(ether_frame, 0, ETH_FRAME_LEN);
-	memcpy(src_ip, radv_ip, 4);
+	memcpy(my_ip, radv_ip, 4);
 
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
 	memcpy(arp_header->arp_tha, dst_mac, ETH_ALEN);
 	memcpy(arp_header->arp_tpa, radv_ip, 4);
 	memcpy(arp_header->arp_sha, my_mac, ETH_ALEN);
-	memcpy(arp_header->arp_spa, src_ip, 4);
+	memcpy(arp_header->arp_spa, my_ip, 4);
 
 	/*
 	 * finally send our manually crafted, black-magic
@@ -255,8 +255,8 @@ int main(int argc, char* argv[]) {
 
 			/* fill ip header */
 			ip_header->ip_id = rand() & 0xFFFF;
-			src_ip[3] = 8 + i + 8 * j;
-			memcpy(&(ip_header->ip_src), src_ip, 4);
+			my_ip[3] = 8 + i + 8 * j;
+			memcpy(&(ip_header->ip_src), my_ip, 4);
 			memset(&(ip_header->ip_sum), 0, 2);
 			ip_header->ip_sum = checksum((uint16_t*)ip_header,
 			    sizeof(ip));
@@ -300,10 +300,10 @@ int main(int argc, char* argv[]) {
 		    "Trying next IP sequence\n");
 	}
 
-	memcpy(src_ip, arp_header->arp_tpa, 4);
+	memcpy(my_ip, arp_header->arp_tpa, 4);
 	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
-	    src_ip[0], src_ip[1], src_ip[2], src_ip[3]);
+	    my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
 
 	close(sock);
 	return EXIT_SUCCESS;
