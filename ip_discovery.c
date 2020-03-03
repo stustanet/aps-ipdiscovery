@@ -24,8 +24,23 @@ typedef struct icmphdr icmphdr;
 
 /* BEWARE: The eth1 interface has to be up for this to work */
 
+int sock;
+int ifindex;
+uint8_t ether_frame[ETH_FRAME_LEN];
+ether_header* eth_header = (ether_header*)ether_frame;
+ether_arp* arp_header = (ether_arp*)(ether_frame + sizeof(ether_header));
+ip* ip_header = (ip*)(ether_frame + sizeof(ether_header));
+icmphdr* icmp_header = (icmphdr*)(ether_frame + sizeof(ether_header) +
+    sizeof(ip));
+uint8_t my_ip[4];
+uint8_t radv_ip[4];
+uint8_t my_mac[ETH_ALEN];
+uint8_t radv_mac[ETH_ALEN];
+
 /* Checksum function */
-uint16_t checksum(uint16_t *addr, int len) {
+uint16_t
+checksum(uint16_t *addr, int len)
+{
 	int nleft = len;
 	int sum = 0;
 	uint16_t *w = addr;
@@ -43,51 +58,17 @@ uint16_t checksum(uint16_t *addr, int len) {
 	return ~sum;
 }
 
-int main(int argc, char* argv[]) {
-	int sock;
-	int i, j;
-	time_t start;
-	uint8_t ether_frame[ETH_FRAME_LEN];
-	ether_header* eth_header = (ether_header*)ether_frame;
-	ether_arp* arp_header = (ether_arp*)(ether_frame +
-	    sizeof(ether_header));
-	ip* ip_header = (ip*)(ether_frame + sizeof(ether_header));
-	icmphdr* icmp_header = (icmphdr*)(ether_frame + sizeof(ether_header) +
-	    sizeof(ip));
-	uint8_t* icmp_payload = (uint8_t*)(ether_frame + sizeof(ether_header) +
-	    sizeof(ip) + sizeof(icmphdr));
-	char* payload_data = "Get on your knees to honor the StuStaNet "
-	    "analdildos entrance!!!!";
-	int payload_len = strlen(payload_data);
-	int ifindex = 0;
-	struct ifreq ifr;
-	struct sockaddr_ll socket_address;
-	uint8_t my_mac[ETH_ALEN];
-	uint8_t radv_mac[ETH_ALEN];
-	uint8_t radv_ip[4] = {0, 0, 0, 0};
-	uint8_t my_ip[4] = {10, 150, 0, 240};
-
-	/* Open raw socket (needs root) to listen for arp */
-	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
-		perror("socket() failed");
-		return EXIT_FAILURE;
-	}
-
-	/*
-	 * TODO
-	 * bind socket to interface mentioned in
-	 * /etc/config/ip_discovery or via flag
-	 */
-
-	/*
-	 * Step 1: Get the subnet id from the first received ARP packet.
-	 * NEW: We listen for ICMP Router advertisements!
-	 * We listen passively on all interfaces (only the upstream eth1 port
-	 * should be up to ensure, we only get meaningful ARPs. From the first
-	 * received ARP packet we take the subnet id x and from there on assume
-	 * we are operating in 10.150.x.0
-	 */
-
+/*
+ * Step 1: Get the subnet id from the first received ARP packet.
+ * NEW: We listen for ICMP Router advertisements!
+ * We listen passively on all interfaces (only the upstream eth1 port
+ * should be up to ensure, we only get meaningful ARPs. From the first
+ * received ARP packet we take the subnet id x and from there on assume
+ * we are operating in 10.150.x.0
+ */
+void
+listen_for_radv(void)
+{
 	do {
 		memset(ether_frame, 0, ETH_FRAME_LEN);
 		if(recv(sock, ether_frame, ETH_FRAME_LEN, 0) == -1) {
@@ -95,7 +76,8 @@ int main(int argc, char* argv[]) {
 				continue;
 			} else {
 				perror("recv() failed");
-				goto fail;
+				close(sock);
+				exit(EXIT_FAILURE);
 			}
 		}
 	} while(!(ntohs(eth_header->ether_type) == ETHERTYPE_IP &&
@@ -115,12 +97,18 @@ int main(int argc, char* argv[]) {
 	fprintf(stderr, "Got ICMP-RADV from %hhu.%hhu.%hhu.%hhu assuming "
 	    "%hhu.%hhu.%hhu.0/24 subnet.\n", radv_ip[0], radv_ip[1],
 	    radv_ip[2], radv_ip[3], radv_ip[0], radv_ip[1], radv_ip[2]);
+}
 
+void
+init_my_if(void)
+{
+	struct ifreq ifr;
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
 	if(ioctl(sock, SIOCGIFINDEX, &ifr) == -1) {
 		perror("SIOCGIFINDEX");
-		goto fail;
+		close(sock);
+		exit(EXIT_FAILURE);
 	}
 	ifindex = ifr.ifr_ifindex;
 	fprintf(stderr, "Own interface index: %i\n", ifindex);
@@ -128,12 +116,32 @@ int main(int argc, char* argv[]) {
 	/* retrieve corresponding MAC */
 	if(ioctl(sock, SIOCGIFHWADDR, &ifr) == -1) {
 		perror("SIOCGIFHWADDR");
-		goto fail;
+		close(sock);
+		exit(EXIT_FAILURE);
 	}
 	memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	fprintf(stderr, "Own MAC address: "
 	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", my_mac[0],
 	    my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+}
+
+/*
+ * Step 2: send a ping from each valid /29 to determine the right one.
+ * The switch will only pass IP packets with the correct source IP
+ * through to the gateway. Therefore we can identify the correct /29
+ * subnet with the one reply, we should get.
+ */
+void
+bang_address(void)
+{
+	int i, j;
+	time_t start;
+	char* payload_data = "Get on your knees to honor the StuStaNet "
+	    "analdildos entrance!!!!";
+	int payload_len = strlen(payload_data);
+	struct sockaddr_ll socket_address;
+	uint8_t* icmp_payload = (uint8_t*)(ether_frame + sizeof(ether_header) +
+	    sizeof(ip) + sizeof(icmphdr));
 
 	/* prepare sockaddr_ll */
 	socket_address.sll_family = AF_PACKET;
@@ -142,16 +150,8 @@ int main(int argc, char* argv[]) {
 	socket_address.sll_hatype = ARPHRD_ETHER;
 	socket_address.sll_pkttype = PACKET_OTHERHOST;
 	socket_address.sll_halen = ETH_ALEN;
-	memset(socket_address.sll_addr, 0xFF, ETH_ALEN);
-	socket_address.sll_addr[6] = 0x00;
-	socket_address.sll_addr[7] = 0x00;
+	memcpy(socket_address.sll_addr, radv_mac, ETH_ALEN);
 
-	/*
-	 * Step 2: send a ping from each valid /29 to determine the right one.
-	 * The switch will only pass IP packets with the correct source IP
-	 * through to the gateway. Therefore we can identify the correct /29
-	 * subnet with the one reply, we should get.
-	 */
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 
 	/* fill icmp payload */
@@ -176,9 +176,6 @@ int main(int argc, char* argv[]) {
 	memcpy(eth_header->ether_shost, my_mac, ETH_ALEN);
 	memcpy(eth_header->ether_dhost, radv_mac, ETH_ALEN);
 	eth_header->ether_type = htons(ETH_P_IP);
-
-	/* fix socket_address content */
-	memcpy(socket_address.sll_addr, radv_mac, ETH_ALEN);
 
 	memcpy(my_ip, radv_ip, 4);
 	/* generate 29 icmp echo requests */
@@ -222,7 +219,8 @@ int main(int argc, char* argv[]) {
 					continue;
 				} else {
 					perror("recv() failed");
-					goto fail;
+					close(sock);
+					exit(EXIT_FAILURE);
 				}
 			}
 			if((double)(time(NULL)-start) >= 0.5)
@@ -243,10 +241,27 @@ int main(int argc, char* argv[]) {
 	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
 	    my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
+}
+
+int
+main(int argc, char* argv[])
+{
+	/* Open raw socket (needs root) to listen for router advertisement */
+	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+		perror("socket() failed");
+		return EXIT_FAILURE;
+	}
+
+	/*
+	 * TODO
+	 * bind socket to interface mentioned in
+	 * /etc/config/ip_discovery or via flag
+	 */
+
+	listen_for_radv();
+	init_my_if();
+	bang_address();
 
 	close(sock);
 	return EXIT_SUCCESS;
-fail:
-	close(sock);
-	return EXIT_FAILURE;
 }
