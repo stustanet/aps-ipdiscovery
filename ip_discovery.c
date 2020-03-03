@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
 	uint8_t src_mac[ETH_ALEN];
 	uint8_t dst_mac[ETH_ALEN];
 	uint8_t sw_mac[ETH_ALEN];
-	uint8_t sw_mac_ist[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	uint8_t radv_mac[ETH_ALEN];
 	    /* MAC from StuSta GW we see */
 	uint8_t src_ip[4] = {10, 150, 0, 240};
 	uint8_t src_radv[4] = {0, 0, 0, 0};
@@ -109,11 +109,10 @@ int main(int argc, char* argv[]) {
 		icmp_header->type == ICMP_ROUTERADVERT));
 
 	memcpy(src_radv,&(ip_header->ip_src), 4);
-	memcpy(sw_mac_ist, eth_header->ether_shost, ETH_ALEN);
+	memcpy(radv_mac, eth_header->ether_shost, ETH_ALEN);
 	fprintf(stderr, "Got ICMP-RADV from: "
-	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", sw_mac_ist[0],
-	    sw_mac_ist[1], sw_mac_ist[2], sw_mac_ist[3], sw_mac_ist[4],
-	    sw_mac_ist[5]);
+	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", radv_mac[0],
+	    radv_mac[1], radv_mac[2], radv_mac[3], radv_mac[4], radv_mac[5]);
 
 	/*
 	 * TODO: What do we do, when the sender is wrong?
