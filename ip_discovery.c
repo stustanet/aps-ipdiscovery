@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
 	int ifindex = 0;
 	struct ifreq ifr;
 	struct sockaddr_ll socket_address;
-	uint8_t src_mac[ETH_ALEN];
+	uint8_t my_mac[ETH_ALEN];
 	uint8_t dst_mac[ETH_ALEN];
 	uint8_t sw_mac[ETH_ALEN];
 	uint8_t radv_mac[ETH_ALEN];
@@ -143,11 +143,11 @@ int main(int argc, char* argv[]) {
 		perror("SIOCGIFHWADDR");
 		goto fail;
 	}
-	memcpy(src_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+	memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	memset(dst_mac, 0xFF, ETH_ALEN);
 	fprintf(stderr, "Own MAC address: "
-	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", src_mac[0],
-	    src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", my_mac[0],
+	    my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
 
 	/* prepare sockaddr_ll */
 	socket_address.sll_family = AF_PACKET;
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
 	socket_address.sll_addr[7] = 0x00;
 
 	/* fill ethernet header */
-	memcpy(eth_header->ether_shost, src_mac, ETH_ALEN);
+	memcpy(eth_header->ether_shost, my_mac, ETH_ALEN);
 	memcpy(eth_header->ether_dhost, dst_mac, ETH_ALEN);
 	eth_header->ether_type = htons(ETHERTYPE_ARP);
 
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
 	arp_header->ea_hdr.ar_op = htons(ARPOP_REQUEST);
 	memcpy(arp_header->arp_tha, dst_mac, ETH_ALEN);
 	memcpy(arp_header->arp_tpa, radv_ip, 4);
-	memcpy(arp_header->arp_sha, src_mac, ETH_ALEN);
+	memcpy(arp_header->arp_sha, my_mac, ETH_ALEN);
 	memcpy(arp_header->arp_spa, src_ip, 4);
 
 	/*
@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
 	memcpy(&(ip_header->ip_dst), radv_ip, 4);
 
 	/* fill ethernet header */
-	memcpy(eth_header->ether_shost, src_mac, ETH_ALEN);
+	memcpy(eth_header->ether_shost, my_mac, ETH_ALEN);
 	memcpy(eth_header->ether_dhost, sw_mac, ETH_ALEN);
 	eth_header->ether_type = htons(ETH_P_IP);
 
