@@ -47,8 +47,6 @@ int main(int argc, char* argv[]) {
 	int sock;
 	int i, j;
 	time_t start;
-	uint8_t subnet_id = 0;
-	uint8_t dorm_id = 0;
 	uint8_t ether_frame[ETH_FRAME_LEN];
 	ether_header* eth_header = (ether_header*)ether_frame;
 	ether_arp* arp_header = (ether_arp*)(ether_frame +
@@ -117,11 +115,9 @@ int main(int argc, char* argv[]) {
 	 * TODO: What do we do, when the sender is wrong?
 	 * Abort, Retry, Proactive DOS on attacker ;)
 	 */
-	dorm_id = radv_ip[1];
-	subnet_id = radv_ip[2];
 	fprintf(stderr, "Got ICMP-RADV from %hhu.%hhu.%hhu.%hhu assuming "
 	    "%hhu.%hhu.%hhu.0/24 subnet.\n", radv_ip[0], radv_ip[1],
-	    radv_ip[2], radv_ip[3], radv_ip[0], dorm_id, subnet_id);
+	    radv_ip[2], radv_ip[3], radv_ip[0], radv_ip[1], radv_ip[2]);
 
 
 	/* Step 2: Get the next gateways MAC address.
@@ -131,9 +127,7 @@ int main(int argc, char* argv[]) {
 	 * and Wolfi approved using it.
 	 */
 	memset(ether_frame, 0, ETH_FRAME_LEN);
-	src_ip[2] = subnet_id;
-	src_ip[1] = dorm_id;
-	src_ip[0] = radv_ip[0];
+	memcpy(src_ip, radv_ip, 4);
 
 	/* retrieve ethernet interface index */
 	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
