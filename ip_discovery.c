@@ -22,20 +22,22 @@ typedef struct ether_arp ether_arp;
 typedef struct ip ip;
 typedef struct icmphdr icmphdr;
 
-/* BEWARE: The eth1 interface has to be up for this to work */
+extern char* optarg;
+extern int optind;
 
 int sock;
 int ifindex;
+char* my_if_name = "eth1";
+uint8_t my_ip[4];
+uint8_t radv_ip[4];
+uint8_t my_mac[ETH_ALEN];
+uint8_t radv_mac[ETH_ALEN];
 uint8_t ether_frame[ETH_FRAME_LEN];
 ether_header* eth_header = (ether_header*)ether_frame;
 ether_arp* arp_header = (ether_arp*)(ether_frame + sizeof(ether_header));
 ip* ip_header = (ip*)(ether_frame + sizeof(ether_header));
 icmphdr* icmp_header = (icmphdr*)(ether_frame + sizeof(ether_header) +
     sizeof(ip));
-uint8_t my_ip[4];
-uint8_t radv_ip[4];
-uint8_t my_mac[ETH_ALEN];
-uint8_t radv_mac[ETH_ALEN];
 
 /* Checksum function */
 uint16_t
@@ -103,12 +105,19 @@ void
 init_my_if(void)
 {
 	struct ifreq ifr;
+	strncpy(ifr.ifr_name, my_if_name, IFNAMSIZ);
+
+	/* bind interface */
+	if(setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr,
+	    sizeof(ifr)) == -1) {
+		perror("SIOCGIFINDEX");
+		goto fail;
+	}
+
 	/* retrieve ethernet interface index */
-	strncpy(ifr.ifr_name, "eth1", IFNAMSIZ); /* XXX read from flag */
 	if(ioctl(sock, SIOCGIFINDEX, &ifr) == -1) {
 		perror("SIOCGIFINDEX");
-		close(sock);
-		exit(EXIT_FAILURE);
+		goto fail;
 	}
 	ifindex = ifr.ifr_ifindex;
 	fprintf(stderr, "Own interface index: %i\n", ifindex);
@@ -116,13 +125,17 @@ init_my_if(void)
 	/* retrieve corresponding MAC */
 	if(ioctl(sock, SIOCGIFHWADDR, &ifr) == -1) {
 		perror("SIOCGIFHWADDR");
-		close(sock);
-		exit(EXIT_FAILURE);
+		goto fail;
 	}
 	memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	fprintf(stderr, "Own MAC address: "
 	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", my_mac[0],
 	    my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+
+	return;
+fail:
+	close(sock);
+	exit(EXIT_FAILURE);
 }
 
 /*
@@ -246,20 +259,28 @@ bang_address(void)
 int
 main(int argc, char* argv[])
 {
+	int ch;
+
 	/* Open raw socket (needs root) to listen for router advertisement */
 	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
 		perror("socket() failed");
 		return EXIT_FAILURE;
 	}
 
-	/*
-	 * TODO
-	 * bind socket to interface mentioned in
-	 * /etc/config/ip_discovery or via flag
-	 */
+	while ((ch = getopt(argc, argv, "i:")) != -1) {
+		switch (ch) {
+		case 'i':
+			my_if_name = optarg;
+			break;
+		default:
+			/* XXX read from /etc/config/ip_discovery */
+		}
+	}
+	argc -= optind;
+	argv += optind;
 
-	listen_for_radv();
 	init_my_if();
+	listen_for_radv();
 	bang_address();
 
 	close(sock);
