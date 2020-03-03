@@ -179,7 +179,7 @@ bang_address(void)
 
 	memcpy(my_ip, radv_ip, 4);
 	/* generate 29 icmp echo requests */
-	srand(time(NULL)); /* consider getrandom(2) */
+	srand(time(NULL)); /* XXX consider getrandom(2) */
 	for(i = 0; i < 8; i++) {
 		for(j = 0; j < 29; j++) {
 			/* fill icmp header */
