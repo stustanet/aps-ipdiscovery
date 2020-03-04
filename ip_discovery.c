@@ -82,8 +82,10 @@ ifname_from_file(void)
 	FILE *file;
 	char *p;
 
-	if ((file = fopen("/etc/config/ip_discovery", "r")) == NULL)
-		err(EXIT_FAILURE, "fopen() on /etc/config/ip_discovery failed");
+	if ((file = fopen("/etc/config/ip_discovery", "r")) == NULL) {
+		fprintf(stderr, "fopen() on /etc/config/ip_discovery failed\n");
+		usage();
+	}
 
 	my_if_name = malloc(IFNAMSIZ + 1);
 	if (my_if_name == NULL)
