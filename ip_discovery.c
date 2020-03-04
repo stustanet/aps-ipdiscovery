@@ -42,6 +42,13 @@ icmphdr* icmp_header = (icmphdr*)(ether_frame + sizeof(ether_header) +
     sizeof(ip));
 
 void
+usage(void)
+{
+	fprintf(stderr, "usage: ip_discovery [-i interface]\n");
+	exit(1);
+}
+
+void
 die(const char *msg) {
 	close(sock);
 	err(EXIT_FAILURE, msg);
@@ -311,11 +318,4 @@ main(int argc, char* argv[])
 
 	close(sock);
 	return EXIT_SUCCESS;
-}
-
-void
-usage(void)
-{
-	fprintf(stderr, "usage: ip_discovery [-i interface]\n");
-	exit(1);
 }
