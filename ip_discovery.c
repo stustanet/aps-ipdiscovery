@@ -97,7 +97,7 @@ ifname_from_file(void)
 		err(EXIT_FAILURE, "fclose() failed");
 
 	if ((p = strchr(my_if_name, '\n')) != NULL) {
-		p = '\0';
+		*p = '\0';
 	} else {
 		my_if_name[ifname_len] = '\0';
 	}
