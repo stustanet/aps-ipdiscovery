@@ -90,9 +90,11 @@ ifname_from_file(void)
 		err(EXIT_FAILURE, "malloc() failed");
 
 	ifname_len = fread(my_if_name, 1, IFNAMSIZ, file);
-	if (ferror(file) != 0) {
+	if (ferror(file) != 0)
 		err(EXIT_FAILURE, "fread() failed");
-	}
+
+	if (fclose(file) != 0)
+		err(EXIT_FAILURE, "fclose() failed");
 
 	if ((p = strchr(my_if_name, '\n')) != NULL) {
 		p = '\0';
