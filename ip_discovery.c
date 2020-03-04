@@ -39,6 +39,12 @@ ip* ip_header = (ip*)(ether_frame + sizeof(ether_header));
 icmphdr* icmp_header = (icmphdr*)(ether_frame + sizeof(ether_header) +
     sizeof(ip));
 
+void
+die(void) {
+	close(sock);
+	exit(EXIT_FAILURE);
+}
+
 /* Checksum function */
 uint16_t
 checksum(uint16_t *addr, int len)
@@ -78,8 +84,7 @@ listen_for_radv(void)
 				continue;
 			} else {
 				perror("recv() failed");
-				close(sock);
-				exit(EXIT_FAILURE);
+				die();
 			}
 		}
 	} while(!(ntohs(eth_header->ether_type) == ETHERTYPE_IP &&
@@ -111,13 +116,13 @@ init_my_if(void)
 	if(setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr,
 	    sizeof(ifr)) == -1) {
 		perror("SO_BINDTODEVICE");
-		goto fail;
+		die();
 	}
 
 	/* retrieve ethernet interface index */
 	if(ioctl(sock, SIOCGIFINDEX, &ifr) == -1) {
 		perror("SIOCGIFINDEX");
-		goto fail;
+		die();
 	}
 	ifindex = ifr.ifr_ifindex;
 	fprintf(stderr, "Own interface index: %i\n", ifindex);
@@ -125,17 +130,12 @@ init_my_if(void)
 	/* retrieve corresponding MAC */
 	if(ioctl(sock, SIOCGIFHWADDR, &ifr) == -1) {
 		perror("SIOCGIFHWADDR");
-		goto fail;
+		die();
 	}
 	memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	fprintf(stderr, "Own MAC address: "
 	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", my_mac[0],
 	    my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
-
-	return;
-fail:
-	close(sock);
-	exit(EXIT_FAILURE);
 }
 
 /*
@@ -232,8 +232,7 @@ bang_address(void)
 					continue;
 				} else {
 					perror("recv() failed");
-					close(sock);
-					exit(EXIT_FAILURE);
+					die();
 				}
 			}
 			if((double)(time(NULL)-start) >= 0.5)
@@ -243,21 +242,15 @@ bang_address(void)
 		    memcmp(arp_header->arp_spa, radv_ip, 4) != 0 ||
 		    memcmp(arp_header->arp_sha, radv_mac, ETH_ALEN) != 0);
 
-		if ((double)(time(NULL)-start) <= 0.4)
-			goto out;
+		if ((double)(time(NULL)-start) <= 0.4) {
+			memcpy(my_ip, arp_header->arp_tpa, 4);
+			return;
+		}
 
 		fprintf(stderr, "Got NO ARP reply from gateway. "
 		    "Trying next IP sequence\n");
 	}
-	fprintf(stderr, "Reached end of address space, no reply received.\n");
-	close(sock);
-	exit(EXIT_FAILURE);
-
-out:
-	memcpy(my_ip, arp_header->arp_tpa, 4);
-	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
-	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
-	    my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
+	die();
 }
 
 int
@@ -287,6 +280,9 @@ main(int argc, char* argv[])
 	init_my_if();
 	listen_for_radv();
 	bang_address();
+	fprintf(stderr, "Got ARP reply from gateway for IP:\n");
+	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
+	    my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
 
 	close(sock);
 	return EXIT_SUCCESS;
