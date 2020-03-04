@@ -292,11 +292,15 @@ main(int argc, char* argv[])
 			my_if_name = optarg;
 			break;
 		default:
-			ifname_from_file();
+			usage();
 		}
 	}
-	argc -= optind;
-	argv += optind;
+
+	if (optind != argc)
+		usage();
+
+	if (my_if_name == NULL)
+		ifname_from_file();
 
 	init_my_if();
 	listen_for_radv();
@@ -307,4 +311,11 @@ main(int argc, char* argv[])
 
 	close(sock);
 	return EXIT_SUCCESS;
+}
+
+void
+usage(void)
+{
+	fprintf(stderr, "usage: " __progname " [-i interface]\n");
+	exit(1);
 }
