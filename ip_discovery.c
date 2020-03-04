@@ -1,20 +1,21 @@
 #define __USE_BSD
 
-#include <time.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <errno.h>
 #include <linux/if.h>
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip_icmp.h>
+
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 typedef struct ether_header ether_header;
