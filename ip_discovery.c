@@ -68,6 +68,32 @@ checksum(uint16_t *addr, int len)
 	return ~sum;
 }
 
+void
+ifname_from_file(void)
+{
+	int ifname_len;
+	FILE *file;
+	char *p;
+
+	if ((file = fopen("/etc/config/ip_discovery", "r")) == -1)
+		err(EXIT_FAILURE, "fopen() on /etc/config/ip_discovery failed");
+
+	my_if_name = malloc(IFNAMSIZ + 1);
+	if (my_if_name == NULL)
+		err(EXIT_FAILURE, "malloc() failed");
+
+	ifname_len = fread(my_if_name, 1, IFNAMSIZ, file);
+	if (ferror(file) != 0) {
+		err(EXIT_FAILURE, "fread() failed");
+	}
+
+	if ((p = strchr(my_if_name, '\n') != NULL) {
+		p = '\0';
+	} else {
+		my_if_name[ifname_len] = '\0';
+	}
+}
+
 /*
  * Step 1: Get the subnet id from the first received ARP packet.
  * NEW: We listen for ICMP Router advertisements!
@@ -266,8 +292,7 @@ main(int argc, char* argv[])
 			my_if_name = optarg;
 			break;
 		default:
-			
-			/* XXX read from /etc/config/ip_discovery */
+			ifname_from_file();
 		}
 	}
 	argc -= optind;
