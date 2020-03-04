@@ -316,6 +316,6 @@ main(int argc, char* argv[])
 void
 usage(void)
 {
-	fprintf(stderr, "usage: " __progname " [-i interface]\n");
+	fprintf(stderr, "usage: ip_discovery [-i interface]\n");
 	exit(1);
 }
