@@ -244,12 +244,16 @@ bang_address(void)
 		    memcmp(arp_header->arp_sha, radv_mac, ETH_ALEN) != 0);
 
 		if ((double)(time(NULL)-start) <= 0.4)
-			break;
+			goto out;
 
 		fprintf(stderr, "Got NO ARP reply from gateway. "
 		    "Trying next IP sequence\n");
 	}
+	fprintf(stderr, "Reached end of address space, no reply received.\n");
+	close(sock);
+	exit(EXIT_FAILURE);
 
+out:
 	memcpy(my_ip, arp_header->arp_tpa, 4);
 	fprintf(stderr, "Got ARP reply from gateway for working IP:\n");
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
@@ -273,6 +277,7 @@ main(int argc, char* argv[])
 			my_if_name = optarg;
 			break;
 		default:
+			
 			/* XXX read from /etc/config/ip_discovery */
 		}
 	}
