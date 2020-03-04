@@ -110,7 +110,7 @@ init_my_if(void)
 	/* bind interface */
 	if(setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr,
 	    sizeof(ifr)) == -1) {
-		perror("SIOCGIFINDEX");
+		perror("SO_BINDTODEVICE");
 		goto fail;
 	}
 
