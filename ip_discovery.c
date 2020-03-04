@@ -10,6 +10,7 @@
 #include <netinet/if_ether.h>
 #include <netinet/ip_icmp.h>
 
+#include <err.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -41,9 +42,9 @@ icmphdr* icmp_header = (icmphdr*)(ether_frame + sizeof(ether_header) +
     sizeof(ip));
 
 void
-die(void) {
+die(const char *msg) {
 	close(sock);
-	exit(EXIT_FAILURE);
+	err(EXIT_FAILURE, msg);
 }
 
 /* Checksum function */
@@ -84,8 +85,7 @@ listen_for_radv(void)
 			if(errno == EINTR) {
 				continue;
 			} else {
-				perror("recv() failed");
-				die();
+				die("recv() failed");
 			}
 		}
 	} while(!(ntohs(eth_header->ether_type) == ETHERTYPE_IP &&
@@ -113,25 +113,27 @@ init_my_if(void)
 	struct ifreq ifr;
 	strncpy(ifr.ifr_name, my_if_name, IFNAMSIZ);
 
+	/* Open raw socket (needs root) to listen for router advertisement */
+	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+		err(EXIT_FAILURE, "socket() failed");
+	}
+
 	/* bind interface */
 	if(setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr,
 	    sizeof(ifr)) == -1) {
-		perror("SO_BINDTODEVICE");
-		die();
+		die("setsockopt() failed");
 	}
 
 	/* retrieve ethernet interface index */
 	if(ioctl(sock, SIOCGIFINDEX, &ifr) == -1) {
-		perror("SIOCGIFINDEX");
-		die();
+		die("SIOCGIFINDEX");
 	}
 	ifindex = ifr.ifr_ifindex;
 	fprintf(stderr, "Own interface index: %i\n", ifindex);
 
 	/* retrieve corresponding MAC */
 	if(ioctl(sock, SIOCGIFHWADDR, &ifr) == -1) {
-		perror("SIOCGIFHWADDR");
-		die();
+		die("SIOCGIFHWADDR");
 	}
 	memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	fprintf(stderr, "Own MAC address: "
@@ -232,8 +234,7 @@ bang_address(void)
 				if(errno == EINTR) {
 					continue;
 				} else {
-					perror("recv() failed");
-					die();
+					die("recv() failed");
 				}
 			}
 			if((double)(time(NULL)-start) >= 0.5)
@@ -251,19 +252,13 @@ bang_address(void)
 		fprintf(stderr, "Got NO ARP reply from gateway. "
 		    "Trying next IP sequence\n");
 	}
-	die();
+	die("IP address space exhausted, no reply by gateway");
 }
 
 int
 main(int argc, char* argv[])
 {
 	int ch;
-
-	/* Open raw socket (needs root) to listen for router advertisement */
-	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
-		perror("socket() failed");
-		return EXIT_FAILURE;
-	}
 
 	while ((ch = getopt(argc, argv, "i:")) != -1) {
 		switch (ch) {
