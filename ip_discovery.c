@@ -29,7 +29,7 @@ extern int optind;
 
 int sock;
 int ifindex;
-char* my_if_name = "eth1";
+char* my_if_name;
 uint8_t my_ip[4];
 uint8_t radv_ip[4];
 uint8_t my_mac[ETH_ALEN];
