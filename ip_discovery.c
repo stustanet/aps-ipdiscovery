@@ -319,6 +319,8 @@ main(int argc, char* argv[])
 	fprintf(stderr, "Got ARP reply from gateway for IP:\n");
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
 	    my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
+	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
+	    radv_ip[0], radv_ip[1], radv_ip[2], radv_ip[3]);
 
 	close(sock);
 	return EXIT_SUCCESS;
