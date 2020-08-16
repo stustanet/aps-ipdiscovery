@@ -51,7 +51,7 @@ usage(void)
 void
 die(const char *msg) {
 	close(sock);
-	err(EXIT_FAILURE, msg);
+	err(EXIT_FAILURE, "%s", msg);
 }
 
 /* Checksum function */
