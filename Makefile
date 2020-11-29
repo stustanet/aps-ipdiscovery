@@ -6,10 +6,6 @@ OBJ = ${SRC:.c=.o}
 # paths
 PREFIX = /usr/local
 
-# includes and libs
-INCS = -I. -I/usr/include
-LIBS = -L/usr/lib -lc
-
 #CFLAGS = -g -pedantic -Wall -O0 ${INCS} ${CPPFLAGS}
 CFLAGS = -pedantic -Wall -Os ${INCS}
 #LDFLAGS = -g ${LIBS}
