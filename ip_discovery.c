@@ -205,6 +205,7 @@ bang_address(void)
 	socket_address.sll_halen = ETH_ALEN;
 	memcpy(socket_address.sll_addr, radv_mac, ETH_ALEN);
 
+	for(i = 0; i < 8; i++) {
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 
 	/* fill icmp payload */
@@ -233,7 +234,6 @@ bang_address(void)
 	memcpy(my_ip, radv_ip, 4);
 	/* generate 29 icmp echo requests */
 	srand(time(NULL)); /* XXX consider getrandom(2) */
-	for(i = 0; i < 8; i++) {
 		for(j = 0; j < 29; j++) {
 			/* fill icmp header */
 			icmp_header->un.echo.id = rand() & 0xFFFF;
