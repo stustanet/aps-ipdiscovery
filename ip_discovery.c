@@ -39,7 +39,16 @@ ether_header* eth_header = (ether_header*)ether_frame;
 ether_arp* arp_header = (ether_arp*)(ether_frame + sizeof(ether_header));
 ip* ip_header = (ip*)(ether_frame + sizeof(ether_header));
 icmphdr* icmp_header = (icmphdr*)(ether_frame + sizeof(ether_header) +
-    sizeof(ip));
+	sizeof(ip));
+
+
+int
+now_ms(void)
+{
+	struct timespec r;
+	clock_gettime(CLOCK_MONOTONIC, &r);
+	return r.tv_sec * 100 + r.tv_nsec / 1000000;
+}
 
 void
 usage(void)
@@ -132,16 +141,16 @@ listen_for_radv(void)
 	memcpy(radv_ip,&(ip_header->ip_src), 4);
 	memcpy(radv_mac, eth_header->ether_shost, ETH_ALEN);
 	fprintf(stderr, "Got ICMP-RADV from: "
-	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", radv_mac[0],
-	    radv_mac[1], radv_mac[2], radv_mac[3], radv_mac[4], radv_mac[5]);
+		"%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", radv_mac[0],
+		radv_mac[1], radv_mac[2], radv_mac[3], radv_mac[4], radv_mac[5]);
 
 	/*
 	 * TODO: What do we do, when the sender is wrong?
 	 * Abort, Retry, Proactive DOS on attacker ;)
 	 */
 	fprintf(stderr, "Got ICMP-RADV from %hhu.%hhu.%hhu.%hhu assuming "
-	    "%hhu.%hhu.%hhu.0/24 subnet.\n", radv_ip[0], radv_ip[1],
-	    radv_ip[2], radv_ip[3], radv_ip[0], radv_ip[1], radv_ip[2]);
+		"%hhu.%hhu.%hhu.0/24 subnet.\n", radv_ip[0], radv_ip[1],
+		radv_ip[2], radv_ip[3], radv_ip[0], radv_ip[1], radv_ip[2]);
 }
 
 void
@@ -157,7 +166,7 @@ init_my_if(void)
 
 	/* bind interface */
 	if(setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr,
-	    sizeof(ifr)) == -1) {
+		sizeof(ifr)) == -1) {
 		die("setsockopt() failed");
 	}
 
@@ -174,8 +183,8 @@ init_my_if(void)
 	}
 	memcpy(my_mac, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 	fprintf(stderr, "Own MAC address: "
-	    "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", my_mac[0],
-	    my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+		"%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX\n", my_mac[0],
+		my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
 }
 
 /*
@@ -190,11 +199,11 @@ bang_address(void)
 	int i, j;
 	time_t start;
 	char* payload_data = "Get on your knees to honor the StuStaNet "
-	    "analdildos entrance!!!!";
+		"analdildos entrance!!!!";
 	int payload_len = strlen(payload_data);
 	struct sockaddr_ll socket_address;
 	uint8_t* icmp_payload = (uint8_t*)(ether_frame + sizeof(ether_header) +
-	    sizeof(ip) + sizeof(icmphdr));
+		sizeof(ip) + sizeof(icmphdr));
 
 	/* prepare sockaddr_ll */
 	socket_address.sll_family = AF_PACKET;
@@ -205,7 +214,6 @@ bang_address(void)
 	socket_address.sll_halen = ETH_ALEN;
 	memcpy(socket_address.sll_addr, radv_mac, ETH_ALEN);
 
-	for(i = 0; i < 8; i++) {
 	memset(ether_frame, 0, ETH_FRAME_LEN);
 
 	/* fill icmp payload */
@@ -220,7 +228,7 @@ bang_address(void)
 	ip_header->ip_v = 4;
 	ip_header->ip_tos = 0;
 	ip_header->ip_len = htons(sizeof(ip) + sizeof(icmphdr) +
-	    payload_len);
+		payload_len);
 	ip_header->ip_off = 0;
 	ip_header->ip_ttl = 255;
 	ip_header->ip_p = IPPROTO_ICMP;
@@ -233,14 +241,15 @@ bang_address(void)
 
 	memcpy(my_ip, radv_ip, 4);
 	/* generate 29 icmp echo requests */
-	srand(time(NULL)); /* XXX consider getrandom(2) */
+	srand(now_ms()); /* XXX consider getrandom(2) */
+	for(i = 0; i < 8; i++) {
 		for(j = 0; j < 29; j++) {
 			/* fill icmp header */
 			icmp_header->un.echo.id = rand() & 0xFFFF;
 			icmp_header->un.echo.sequence = rand() & 0xFFFF;
 			memset(&(icmp_header->checksum), 0, 2);
 			icmp_header->checksum = checksum((uint16_t*)icmp_header,
-			    payload_len + sizeof(icmphdr));
+				payload_len + sizeof(icmphdr));
 
 			/* fill ip header */
 			ip_header->ip_id = rand() & 0xFFFF;
@@ -248,21 +257,21 @@ bang_address(void)
 			memcpy(&(ip_header->ip_src), my_ip, 4);
 			memset(&(ip_header->ip_sum), 0, 2);
 			ip_header->ip_sum = checksum((uint16_t*)ip_header,
-			    sizeof(ip));
+				sizeof(ip));
 
 			/* send our carefully crafted ping packet */
 			if(sendto(sock, ether_frame, sizeof(ether_header) +
-			    sizeof(ip) + sizeof(icmphdr) + payload_len, 0,
-			    (const struct sockaddr*)&socket_address,
-			    sizeof(socket_address)) == -1) {
+				sizeof(ip) + sizeof(icmphdr) + payload_len, 0,
+				(const struct sockaddr*)&socket_address,
+				sizeof(socket_address)) == -1) {
 				perror("sendto() failed");
 				continue;
 			}
 		}
 		fprintf(stderr, "Sent pings to gateway, "
-		    "waiting for reply...\n");
+			"waiting for reply...\n");
 
-		start = time(NULL);
+		start = now_ms();
 
 		/* Get the subnet id from the first received arp packet */
 		do {
@@ -274,20 +283,20 @@ bang_address(void)
 					die("recv() failed");
 				}
 			}
-			if((double)(time(NULL)-start) >= 0.5)
-			    break;
+			if(now_ms()-start >= 800)
+				break;
 		} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP ||
-		    ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REQUEST ||
-		    memcmp(arp_header->arp_spa, radv_ip, 4) != 0 ||
-		    memcmp(arp_header->arp_sha, radv_mac, ETH_ALEN) != 0);
+			ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REQUEST ||
+			memcmp(arp_header->arp_spa, radv_ip, 4) != 0 ||
+			memcmp(arp_header->arp_sha, radv_mac, ETH_ALEN) != 0);
 
-		if ((double)(time(NULL)-start) <= 0.4) {
+		if (now_ms()-start <= 700) {
 			memcpy(my_ip, arp_header->arp_tpa, 4);
 			return;
 		}
 
 		fprintf(stderr, "Got NO ARP reply from gateway. "
-		    "Trying next IP sequence\n");
+			"Trying next IP sequence\n");
 	}
 	die("IP address space exhausted, no reply by gateway");
 }
@@ -318,9 +327,9 @@ main(int argc, char* argv[])
 	bang_address();
 	fprintf(stderr, "Got ARP reply from gateway for IP:\n");
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
-	    my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
+		my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
-	    radv_ip[0], radv_ip[1], radv_ip[2], radv_ip[3]);
+		radv_ip[0], radv_ip[1], radv_ip[2], radv_ip[3]);
 
 	close(sock);
 	return EXIT_SUCCESS;
