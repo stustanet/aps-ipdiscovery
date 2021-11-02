@@ -214,35 +214,35 @@ bang_address(void)
 	socket_address.sll_halen = ETH_ALEN;
 	memcpy(socket_address.sll_addr, radv_mac, ETH_ALEN);
 
-	memset(ether_frame, 0, ETH_FRAME_LEN);
-
-	/* fill icmp payload */
-	memcpy(icmp_payload, payload_data, payload_len);
-
-	/* fill icmp header */
-	icmp_header->type = ICMP_ECHO;
-	icmp_header->code = 0;
-
-	/* fill ip header */
-	ip_header->ip_hl = sizeof(ip) / sizeof(uint32_t);
-	ip_header->ip_v = 4;
-	ip_header->ip_tos = 0;
-	ip_header->ip_len = htons(sizeof(ip) + sizeof(icmphdr) +
-		payload_len);
-	ip_header->ip_off = 0;
-	ip_header->ip_ttl = 255;
-	ip_header->ip_p = IPPROTO_ICMP;
-	memcpy(&(ip_header->ip_dst), radv_ip, 4);
-
-	/* fill ethernet header */
-	memcpy(eth_header->ether_shost, my_mac, ETH_ALEN);
-	memcpy(eth_header->ether_dhost, radv_mac, ETH_ALEN);
-	eth_header->ether_type = htons(ETH_P_IP);
-
-	memcpy(my_ip, radv_ip, 4);
-	/* generate 29 icmp echo requests */
-	srand(now_ms()); /* XXX consider getrandom(2) */
 	for(i = 0; i < 8; i++) {
+		memset(ether_frame, 0, ETH_FRAME_LEN);
+
+		/* fill icmp payload */
+		memcpy(icmp_payload, payload_data, payload_len);
+
+		/* fill icmp header */
+		icmp_header->type = ICMP_ECHO;
+		icmp_header->code = 0;
+
+		/* fill ip header */
+		ip_header->ip_hl = sizeof(ip) / sizeof(uint32_t);
+		ip_header->ip_v = 4;
+		ip_header->ip_tos = 0;
+		ip_header->ip_len = htons(sizeof(ip) + sizeof(icmphdr) +
+			payload_len);
+		ip_header->ip_off = 0;
+		ip_header->ip_ttl = 255;
+		ip_header->ip_p = IPPROTO_ICMP;
+		memcpy(&(ip_header->ip_dst), radv_ip, 4);
+
+		/* fill ethernet header */
+		memcpy(eth_header->ether_shost, my_mac, ETH_ALEN);
+		memcpy(eth_header->ether_dhost, radv_mac, ETH_ALEN);
+		eth_header->ether_type = htons(ETH_P_IP);
+
+		memcpy(my_ip, radv_ip, 4);
+		/* generate 29 icmp echo requests */
+		srand(now_ms()); /* XXX consider getrandom(2) */
 		for(j = 0; j < 29; j++) {
 			/* fill icmp header */
 			icmp_header->un.echo.id = rand() & 0xFFFF;
@@ -283,15 +283,30 @@ bang_address(void)
 					die("recv() failed");
 				}
 			}
-			if(now_ms()-start >= 800)
+			if(now_ms()-start >= 500)
 				break;
-		} while(ntohs(eth_header->ether_type) != ETHERTYPE_ARP ||
-			ntohs(arp_header->ea_hdr.ar_op) != ARPOP_REQUEST ||
-			memcmp(arp_header->arp_spa, radv_ip, 4) != 0 ||
-			memcmp(arp_header->arp_sha, radv_mac, ETH_ALEN) != 0);
+		} while(!( /* not received arp request and not received ping reply */
+				ntohs(eth_header->ether_type) == ETHERTYPE_ARP &&
+				ntohs(arp_header->ea_hdr.ar_op) == ARPOP_REQUEST &&
+				memcmp(arp_header->arp_spa, radv_ip, 4) == 0 &&
+				memcmp(arp_header->arp_sha, radv_mac, ETH_ALEN) == 0
+			) && !(
+				ntohs(eth_header->ether_type) == ETHERTYPE_IP &&
+				ip_header->ip_p == IPPROTO_ICMP &&
+				icmp_header->type == ICMP_ECHOREPLY &&
+				memcmp(&(ip_header->ip_src), radv_ip, 4) == 0 &&
+				memcmp(eth_header->ether_shost, radv_mac, ETH_ALEN) == 0)
+			);
 
-		if (now_ms()-start <= 700) {
-			memcpy(my_ip, arp_header->arp_tpa, 4);
+		if (now_ms()-start <= 400) {
+			if (ntohs(eth_header->ether_type) == ETHERTYPE_ARP) {
+				memcpy(my_ip, arp_header->arp_tpa, 4);
+				fprintf(stderr, "Got ARP request from gateway for IP:\n");
+			}
+			else { /* got a ping reply */
+				memcpy(my_ip, &(ip_header->ip_dst), 4);
+				fprintf(stderr, "Got Ping reply from gateway for IP:\n");
+			}
 			return;
 		}
 
@@ -325,7 +340,6 @@ main(int argc, char* argv[])
 	init_my_if();
 	listen_for_radv();
 	bang_address();
-	fprintf(stderr, "Got ARP reply from gateway for IP:\n");
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
 		my_ip[0], my_ip[1], my_ip[2], my_ip[3]);
 	fprintf(stdout, "%hhu.%hhu.%hhu.%hhu\n",
